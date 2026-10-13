@@ -13,6 +13,7 @@ import androidx.compose.material3.*
 import androidx.compose.runtime.*
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.text.input.TextFieldValue
 import androidx.compose.ui.unit.dp
 import kotlinx.coroutines.delay
 import kotlinx.coroutines.launch
@@ -23,7 +24,8 @@ import java.util.Locale
 data class Message(
     val text: String,
     val fromMe: Boolean,
-    val time: String
+    val time: String,
+    val status: String = ""
 )
 
 class MainActivity : ComponentActivity() {
@@ -49,18 +51,23 @@ fun ChatScreen() {
             Message("Привет! Это демо-мессенджер.", fromMe = false, time = now())
         )
     }
-    var input by remember { mutableStateOf("") }
+    var input by remember { mutableStateOf(TextFieldValue()) }
+    var typing by remember { mutableStateOf(false) }
     val listState = rememberLazyListState()
     val scope = rememberCoroutineScope()
 
     fun send() {
-        val text = input.trim()
+        val text = input.text.trim()
         if (text.isEmpty()) return
-        messages.add(Message(text, fromMe = true, time = now()))
-        input = ""
+
+        val outgoing = Message(text, fromMe = true, time = now(), status = "Отправлено")
+        messages.add(outgoing)
+        input = TextFieldValue()
         scope.launch {
             listState.animateScrollToItem(messages.lastIndex)
-            delay(1000)
+            typing = true
+            delay(1200)
+            typing = false
             messages.add(Message("Ответ на: $text", fromMe = false, time = now()))
             listState.animateScrollToItem(messages.lastIndex)
         }
@@ -85,7 +92,15 @@ fun ChatScreen() {
                     .padding(horizontal = 8.dp),
                 verticalArrangement = Arrangement.spacedBy(6.dp)
             ) {
-                items(messages) { msg -> MessageBubble(msg) }
+                items(messages) { msg ->
+                    MessageBubble(msg)
+                }
+
+                if (typing) {
+                    item {
+                        TypingIndicator()
+                    }
+                }
             }
 
             Row(
@@ -99,7 +114,8 @@ fun ChatScreen() {
                     onValueChange = { input = it },
                     modifier = Modifier.weight(1f),
                     placeholder = { Text("Сообщение") },
-                    maxLines = 4
+                    maxLines = 4,
+                    singleLine = false
                 )
                 Button(
                     onClick = { send() },
@@ -126,12 +142,44 @@ fun MessageBubble(msg: Message) {
         ) {
             Column(modifier = Modifier.padding(horizontal = 12.dp, vertical = 8.dp)) {
                 Text(msg.text)
-                Text(
-                    text = msg.time,
-                    style = MaterialTheme.typography.labelSmall,
-                    modifier = Modifier.align(Alignment.End)
-                )
+
+                Row(
+                    modifier = Modifier.align(Alignment.End),
+                    verticalAlignment = Alignment.CenterVertically,
+                    horizontalArrangement = Arrangement.spacedBy(4.dp)
+                ) {
+                    Text(
+                        text = msg.time,
+                        style = MaterialTheme.typography.labelSmall
+                    )
+                    if (msg.fromMe && msg.status.isNotBlank()) {
+                        Text(
+                            text = msg.status,
+                            style = MaterialTheme.typography.labelSmall
+                        )
+                    }
+                }
             }
+        }
+    }
+}
+
+@Composable
+fun TypingIndicator() {
+    Box(
+        modifier = Modifier.fillMaxWidth(),
+        contentAlignment = Alignment.CenterStart
+    ) {
+        Surface(
+            shape = RoundedCornerShape(16.dp),
+            color = MaterialTheme.colorScheme.surfaceVariant,
+            modifier = Modifier.widthIn(max = 120.dp)
+        ) {
+            Text(
+                text = "Печатает...",
+                modifier = Modifier.padding(horizontal = 12.dp, vertical = 8.dp),
+                style = MaterialTheme.typography.labelMedium
+            )
         }
     }
 }
